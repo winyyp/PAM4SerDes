@@ -1,0 +1,11 @@
+`include "disciplines.vams"
+
+module delay_t3(in1, ou1);
+  electrical in1, ou1;
+  input in1;
+  output ou1;
+  parameter real t3 = 71.43e-12 from (0:inf);
+  analog begin
+    V(ou1) <+ absdelay(V(in1), t3);
+  end
+endmodule

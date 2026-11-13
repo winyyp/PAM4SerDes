@@ -1,0 +1,63 @@
+`include "disciplines.vams"
+
+module delay_t3(in1, ou1);
+  electrical in1, ou1;
+  input in1;
+  output ou1;
+  parameter real t3 = 71.43e-12 from (0:inf); //since 14gb/s gives 71.43 ps for a bit
+  analog begin
+    V(ou1) <+ absdelay(V(in1), t3);
+  end
+endmodule
+
+module mult_1(in1, in2, ou1);
+  electrical in1, in2, ou1;
+  input in1, in2;
+  output ou1;
+  real vout;
+  analog begin
+    if (V(in1) <= 0 && V(in2) <= 0) //assumes 0 input voltage is "low"
+      vout = -0.3;
+    else if (V(in1) <= 0 && V(in2) > 0)
+      vout = 0.3;
+    else if (V(in1) > 0 && V(in2) <= 0)
+      vout = 0.3;
+    else
+      vout = -0.3;
+    V(ou1) <+ vout;
+  end
+endmodule
+
+module mult_2(in1, in2, ou1);
+  electrical in1, in2, ou1;
+  input in1, in2;
+  output ou1;
+  parameter real vmid = 0 from [0:inf);
+  analog begin
+    V(ou1) <+ V(in1)*(V(in2)-vmid);
+  end
+endmodule
+
+module vi_converter(in1, ou1, gnd);
+  electrical in1, ou1, gnd;
+  inout gnd;
+  input in1;
+  output ou1;
+  parameter real g = 1m from (0:inf);
+  analog begin
+    I(gnd, ou1) <+ V(in1)*g;
+  end
+endmodule
+
+//top level
+module viconv_test(cml_dff_x4, ck_in, vi_ou);
+  electrical cml_dff_x4, ck_in, vi_ou;
+  electrical t3_ou, m1_ou, m2_ou, gnd;
+  ground gnd;
+  input cml_dff_x4, ck_in;
+  output vi_ou;
+  delay_t3     #(.t3(71.43e-12)) d_t3 (.in1(cml_dff_x4), .ou1(t3_ou));
+  mult_1                         m_1  (.in1(cml_dff_x4), .in2(t3_ou), .ou1(m1_ou));
+  mult_2       #(.vmid(0.35))    m_2  (.in1(m1_ou), .in2(ck_in), .ou1(m2_ou));
+  vi_converter #(.g(1m))         vi   (.in1(m2_ou), .ou1(vi_ou), .gnd(gnd));
+endmodule

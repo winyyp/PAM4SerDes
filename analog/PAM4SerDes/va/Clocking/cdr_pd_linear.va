@@ -1,0 +1,68 @@
+`include "disciplines.vams"
+
+module delay_t3(in1, ou1);
+  electrical in1, ou1;
+  input in1;
+  output ou1;
+  parameter real t3 = 71.43e-12 from (0:inf);
+  analog begin
+    V(ou1) <+ absdelay(V(in1), t3);
+  end
+endmodule
+
+module mult_1(in1, in2, ou1);
+  electrical in1, in2, ou1;
+  input in1, in2;
+  output ou1;
+  real vout;
+  analog begin
+    if (V(in1) <= 0 && V(in2) <= 0) //assumes 0 input voltage is "low"
+      vout = -0.3;
+    else if (V(in1) <= 0 && V(in2) > 0)
+      vout = 0.3;
+    else if (V(in1) > 0 && V(in2) <= 0)
+      vout = 0.3;
+    else
+      vout = -0.3;
+    V(ou1) <+ vout;
+  end
+endmodule
+
+module mult_2(in1, in2, ou1);
+  electrical in1, in2, ou1;
+  input in1, in2;
+  output ou1;
+  parameter real vmid = 0 from [0:inf);
+  analog begin
+    V(ou1) <+ V(in1)*(V(in2)-vmid);
+  end
+endmodule
+
+module vi_converter(in1, ou1, gnd);
+  electrical in1, ou1, gnd;
+  inout gnd;
+  input in1;
+  output ou1;
+  parameter real g = 1m from (0:inf);
+  analog begin
+    I(gnd, ou1) <+ V(in1)*g;
+  end
+endmodule
+
+//top level
+module cdr_pd_linear(vout_b, clk14_I, clk14_Q, vi_ou);
+  electrical vout_b, vi_ou, clk14_I, clk14_Q;
+  electrical t3_ou, tdxor_ou, clkxor_ou, t18_ou, dt4_ou, mixer_ou, gnd;
+  ground gnd;
+  input vout_b, clk14_I, clk14_Q;
+  output vi_ou;
+  parameter real t18 = 1.8p from (0:inf);
+  parameter real dt4 = 26.78p from (0:inf);
+  delay_t3     #(.t3(17.857e-12)) d_t3   (.in1(vout_b), .ou1(t3_ou));
+  mult_1                          tdxor  (.in1(t3_ou), .in2(vout_b), .ou1(tdxor_ou));
+  mult_1                          clkxor (.in1(clk14_I), .in2(clk14_Q), .ou1(clkxor_ou));
+  delay_t3     #(.t3(t18))        d_18   (.in1(clkxor_ou), .ou1(t18_ou));
+  delay_t3     #(.t3(dt4))        d_t4   (.in1(t18_ou), .ou1(dt4_ou));
+  mult_2                          mixer  (.in1(dt4_ou), .in2(tdxor_ou), .ou1(mixer_ou));
+  vi_converter #(.g(0.8755m))     vi     (.in1(mixer_ou), .ou1(vi_ou), .gnd(gnd));
+endmodule
